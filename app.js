@@ -109,7 +109,7 @@ app.post("/generate-cover-letter", async (req, res) => {
   }
 });
 
-app.get("/health", (req, res) => {
+app.get("/", (req, res) => {
   console.log("Health check requested");
   res.status(200).json({ status: "Server is running" });
 });
