@@ -3,6 +3,10 @@ const cors = require("cors");
 const { InferenceClient } = require("@huggingface/inference");
 require("dotenv").config();
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",")
+  : [];
+
 const app = express();
 app.use(express.json());
 app.use(
@@ -34,11 +38,24 @@ app.post("/generate-cover-letter", async (req, res) => {
     jobDescription,
     hiringManagerName,
     experience,
+    password,
   } = req.body;
 
-  if (!role || !resumeData || !companyName || !jobDescription || !experience) {
+  if (
+    !role ||
+    !resumeData ||
+    !companyName ||
+    !jobDescription ||
+    !experience ||
+    !password
+  ) {
     console.log("Missing required fields in request body");
     return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  if (password !== process.env.PASSWORD) {
+    console.log("Invalid password provided");
+    return res.status(403).json({ error: "Invalid password" });
   }
 
   const formattedResumeData = JSON.stringify(resumeData, null, 2);
@@ -77,12 +94,15 @@ app.post("/generate-cover-letter", async (req, res) => {
     ---
 
     Instructions:
+    - Don't forget to include all details like name, contact info, date, and hiring manager.
+    - Highlight skills that match the job description.
     - Use metrics exactly as in the resume (e.g., “95% test coverage”, “3s to 2.5s”).
-    - Keep the letter concise (~250–300 words).
+    - Keep the letter concise (~200-250 words).
     - Select achievements relevant to the ${role} role and job description.
+    - Use the provided resume data and job description to select relevant achievements.
     - Ensure a professional tone and formal language.
-    - If hiringManagerName is not provided, use “Hiring Manager”.
     - Do not add or modify any metrics.
+    - Use simple words and make it sound like a human wrote it.
     `;
 
   try {
@@ -98,9 +118,10 @@ app.post("/generate-cover-letter", async (req, res) => {
       ],
     });
 
-    const coverLetter =
-      chatCompletion.choices[0].message || "No content generated";
-    res.json({ coverLetter });
+    const coverLetter = chatCompletion.choices[0].message || {
+      content: "No content generated",
+    };
+    res.json(coverLetter);
   } catch (error) {
     console.error("Error generating cover letter:", error);
     res
